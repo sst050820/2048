@@ -111,6 +111,14 @@ function createWindow(initial) {
     if (!url.startsWith(proto.SCHEME + '://' + proto.HOST + '/')) event.preventDefault();
   });
 
+  // F11 在主进程切换全屏，不进入页面；Esc/P/M/K/L 一律留给游戏，不抢占。
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      event.preventDefault();
+      win.setFullScreen(!win.isFullScreen());
+    }
+  });
+
   // 桌面平台没有震动马达：在 DOM 就绪后（早于任何用户操作）把无硬件的
   // navigator.vibrate 替换为 no-op，避免无意义调用与控制台噪音。不改动游戏源码。
   win.webContents.on('dom-ready', () => {

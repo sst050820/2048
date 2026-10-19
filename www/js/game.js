@@ -533,6 +533,17 @@
     if (e.pointerType === 'mouse' && mode && activePointer === null) mode.pointer = null;
   });
   canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  // 窗口失焦（Alt+Tab、点到其他应用等；最小化另有 visibilitychange 处理）时，
+  // 取消可能正在进行的拖拽并暂停。失焦可能使 pointerup 丢失，若不清 activePointer，
+  // 回到窗口后第一次 pointerdown 会被“已有手势”拦截而无法操作；暂停后由玩家手动
+  // 继续，避免切回瞬间误发射。
+  window.addEventListener('blur', function () {
+    if (activePointer !== null) {
+      activePointer = null;
+      if (mode) mode.cancelAim(true);
+    }
+    pause();
+  });
 
   window.addEventListener('keydown', function (e) {
     var modal = !$('awards').hidden;   // 模态弹窗（成就与主题）是否打开
