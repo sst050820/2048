@@ -1,0 +1,6 @@
+souba_score.ttf and souba_text.otf are by keepee, made with FontStruct,
+released under the Creative Commons CC0 Public Domain Dedication
+(http://creativecommons.org/publicdomain/zero/1.0/), as stated in each
+font's own name table.
+https://fontstruct.com/fontstructions/show/2902654/souba-score
+https://fontstruct.com/fontstructions/show/2916755/souba-1-1

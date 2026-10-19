@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>凝合 · 软球合成</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="发射软乎乎的数字软球，合成相同数字，别让球堆同时顶开两侧保险杠。">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="凝合">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="凝合 游戏场地"></canvas>
+  <div id="safe" aria-hidden="true"></div>
+
+  <section id="title" class="overlay" aria-labelledby="logo">
+    <div class="card card--title">
+      <h1 id="logo" class="logo" aria-label="凝合">
+        <span style="--c:#33FFFF">凝</span><span style="--c:#FF33AD">合</span>
+      </h1>
+      <p class="tagline">点选 · 瞄准 · 松手，合成软球。</p>
+      <div class="actions">
+        <button id="btn-continue" class="btn btn--primary" type="button" hidden>继续游戏</button>
+        <button id="btn-play" class="btn btn--primary" type="button">开始游戏</button>
+      </div>
+      <button id="btn-awards" class="btn btn--small" type="button">成就与主题 <span id="awards-count" class="pill">0/30</span></button>
+      <ul class="howto">
+        <li>软球从两侧飘入，在顶部浮条上待命。</li>
+        <li><b>抓住一个并朝想发射的方向拖动</b>，松手即可发射；拖得越远，力度越大。</li>
+        <li><b>相同数字会合成</b>：1 + 1 = 2，2 + 2 = 4，以此类推。</li>
+        <li>留意两侧墙壁里的<b>保险杠</b>：球堆若同时把两个保险杠完全顶出，游戏结束。</li>
+      </ul>
+      <p class="best">最高分 <span id="title-best">0</span></p>
+    </div>
+  </section>
+
+  <section id="pause" class="overlay" hidden aria-labelledby="pause-h">
+    <div class="card">
+      <h2 id="pause-h">已暂停</h2>
+      <div class="actions actions--stack">
+        <button id="btn-resume" class="btn btn--primary" type="button">继续</button>
+        <button id="btn-restart" class="btn" type="button">重新开始</button>
+        <button id="btn-sound" class="btn" type="button">音效：开</button>
+        <button id="btn-haptics" class="btn" type="button">震动：开</button>
+        <button id="btn-awards-pause" class="btn" type="button">成就与主题</button>
+        <button id="btn-home" class="btn btn--quiet" type="button">保存并返回标题</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="over" class="overlay" hidden aria-labelledby="over-h">
+    <div class="card">
+      <h2 id="over-h">游戏结束</h2>
+      <p id="over-newbest" class="newbest" hidden>创下新纪录！</p>
+      <dl class="stats">
+        <div><dt>本局得分</dt><dd id="over-score">0</dd></div>
+        <div><dt>最高分</dt><dd id="over-best">0</dd></div>
+        <div><dt>最大软球</dt><dd id="over-biggest">2</dd></div>
+      </dl>
+      <div class="actions actions--stack">
+        <button id="btn-again" class="btn btn--primary" type="button">新游戏</button>
+        <button id="btn-view" class="btn" type="button">查看场地</button>
+        <button id="btn-over-home" class="btn btn--quiet" type="button">返回标题</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="awards" class="overlay overlay--top" hidden aria-labelledby="awards-h">
+    <div class="card card--awards">
+      <div class="awards-head">
+        <div>
+          <h2 id="awards-h">成就</h2>
+          <p id="awards-progress" class="best">0 / 30</p>
+        </div>
+        <button id="btn-awards-x" class="btn btn--icon" type="button" aria-label="关闭">&times;</button>
+      </div>
+      <ul id="awards-list" class="awards"></ul>
+      <h3 class="subhead">配色主题</h3>
+      <p id="styles-tokens" class="best styles-tokens">剩余 0 次主题解锁</p>
+      <div id="styles-list" class="styles" role="radiogroup" aria-label="配色主题"></div>
+      <button id="btn-awards-close" class="btn btn--primary" type="button">完成</button>
+    </div>
+  </section>
+
+  <div id="rotate" class="rotate" aria-live="polite">
+    <div class="rotate-phone" aria-hidden="true"></div>
+    <p>请竖屏游玩</p>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+    <span class="toast-kicker">解锁成就</span>
+    <b id="toast-name"></b>
+    <span id="toast-desc"></span>
+    <span id="toast-extra" class="toast-extra" hidden></span>
+  </div>
+
+  <script src="js/physics.js"></script>
+  <script src="js/mode.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/styles.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+  <script>
+    // Offline support when served over http(s). Opening index.html straight
+    // from disk and the native iOS wrapper both skip this.
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
