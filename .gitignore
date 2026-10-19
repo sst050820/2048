@@ -7,6 +7,11 @@ playwright-report/
 test-results/
 tools/soboscuba-benchmark.html
 
+# Packaged binaries (published via GitHub Releases, not tracked in the repo)
+PC端-exe/
+*.exe
+*.zip
+
 # Generated native projects (can be added explicitly when maintained)
 /ios/
 /android/
