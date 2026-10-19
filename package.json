@@ -2,22 +2,29 @@
   "name": "ninghe",
   "version": "1.0.0",
   "private": true,
+  "main": "desktop/main.cjs",
   "description": "凝合——果冻质感的软球合成游戏：发射软球、合成相同数字，别让球堆同时顶开两侧保险杠。",
   "scripts": {
     "start": "node tools/serve.cjs",
     "icons": "python3 tools/make_icons.py",
     "build:single": "node tools/build-standalone.cjs",
     "build:upstream": "node tools/build-single.js",
+    "desktop:dev": "electron .",
     "ios:add": "cap add ios",
     "ios:sync": "cap sync ios",
     "ios:open": "cap open ios",
     "test": "node tests/run.js node",
     "test:node": "node tests/run.js node",
+    "test:desktop": "node tests/run.js desktop",
     "test:e2e": "node tests/run.js e2e",
     "styles": "python3 tools/gen-styles.py"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",
+    "@electron-forge/cli": "^8.0.1",
+    "@electron-forge/maker-zip": "^8.0.1",
+    "@electron-forge/plugin-fuses": "^8.0.1",
+    "electron": "^44.9.0",
     "playwright": "^1.64.1"
   },
   "dependencies": {

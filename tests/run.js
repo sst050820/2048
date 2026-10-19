@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 // 运行测试，任一失败则以非零退出。
-//   node tests/run.js            全部测试（node + e2e）
+//   node tests/run.js            全部测试（node + desktop + e2e）
 //   node tests/run.js node       仅无头规则与物理测试
+//   node tests/run.js desktop    仅桌面外壳（协议 / 窗口状态 / 存档握手）纯 Node 测试
 //   node tests/run.js e2e        仅浏览器测试
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const which = process.argv[2];
-const valid = ['node', 'e2e'];
+const valid = ['node', 'desktop', 'e2e'];
 
 // 未知参数：打印用法并以非零退出，绝不静默报告“全部通过”。
 if (which && !valid.includes(which)) {
-  console.error(`未知参数: "${which}"\n用法: node tests/run.js [node|e2e]`);
+  console.error(`未知参数: "${which}"\n用法: node tests/run.js [node|desktop|e2e]`);
   process.exit(2);
 }
 
