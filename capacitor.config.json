@@ -1,0 +1,11 @@
+{
+  "appId": "com.soboscuba.game",
+  "appName": "凝合",
+  "webDir": "www",
+  "backgroundColor": "#000000",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "backgroundColor": "#000000"
+  }
+}

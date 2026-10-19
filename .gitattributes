@@ -1,0 +1,14 @@
+# Keep source line endings consistent across Windows, macOS and Linux.
+* text=auto
+*.js text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.webmanifest text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.png binary
+*.woff2 binary
+*.otf binary
+*.ttf binary

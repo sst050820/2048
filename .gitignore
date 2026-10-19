@@ -1,0 +1,27 @@
+# Dependencies and generated output
+node_modules/
+out/
+dist/
+coverage/
+playwright-report/
+test-results/
+tools/soboscuba-benchmark.html
+
+# Generated native projects (can be added explicitly when maintained)
+/ios/
+/android/
+
+# Local settings, secrets and caches
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
