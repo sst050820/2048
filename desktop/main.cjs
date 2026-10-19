@@ -16,9 +16,10 @@
 
 const path = require('path');
 const fs = require('fs');
-const { app, BrowserWindow, Menu, shell, protocol, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, protocol } = require('electron');
 const proto = require('./protocol.cjs');
 const winState = require('./window-state.cjs');
+const closeHandler = require('./close-handler.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const WWW_ROOT = path.join(ROOT, 'www');
@@ -131,6 +132,8 @@ function createWindow(initial) {
       win.webContents.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(loadFailHtml())).catch(() => {});
     }
   });
+
+  closeHandler.attachCloseHandler(win);
 
   win.once('ready-to-show', () => win.show());
   win.loadURL(proto.APP_URL).catch(() => {});

@@ -10,6 +10,7 @@
     "build:single": "node tools/build-standalone.cjs",
     "build:upstream": "node tools/build-single.js",
     "desktop:dev": "electron .",
+    "desktop:test:close": "electron tests/desktop/close-save.e2e.cjs",
     "ios:add": "cap add ios",
     "ios:sync": "cap sync ios",
     "ios:open": "cap open ios",

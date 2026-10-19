@@ -24,6 +24,12 @@
       catch (e) { return d; }
     },
     set: function (k, v) { try { localStorage.setItem('soboscuba.' + k, JSON.stringify(v)); } catch (e) {} },
+    // 与 set 相同但返回布尔结果，供桌面关窗握手上报“是否真的写入成功”。
+    // 旧的 set 调用全部保留，不改变其签名与行为。
+    setSafe: function (k, v) {
+      try { localStorage.setItem('soboscuba.' + k, JSON.stringify(v)); return true; }
+      catch (e) { return false; }
+    },
     del: function (k) { try { localStorage.removeItem('soboscuba.' + k); } catch (e) {} }
   };
   // Saves and awards from the earlier rules no longer apply.
@@ -289,12 +295,14 @@
   }
 
   /* ---------- save / resume ---------- */
+  // 返回 true 表示“无需保存（无进行中的对局）”或“已成功写入”；
+  // 返回 false 表示“有对局需要保存，但 localStorage 写入失败”。
   function save() {
-    if (!mode || app.screen === 'title' || mode.state !== 'playing') return;
+    if (!mode || app.screen === 'title' || mode.state !== 'playing') return true;
     var data = mode.capture();
     data.taught = taught;
     data.tracker = tracker.capture(mode.allSobos());   // 保存本局成就进度
-    store.set('game', data);
+    return store.setSafe('game', data);
   }
   function resume() {
     var data = store.get('game', null);
@@ -636,4 +644,16 @@
     newGame: newGame, resume: resume, save: save, pause: pause,
     get mode() { return mode; }, get style() { return styleId; }, tokens: tokens
   };
+
+  // 桌面外壳握手：主进程在关窗前请求“暂停并保存”，页面返回真实写入结果。
+  // 仅在桌面 preload 注入了 ningheDesktop 时注册，网页版没有此对象，行为不变。
+  if (window.ningheDesktop && typeof window.ningheDesktop.setSaveHandler === 'function') {
+    window.ningheDesktop.setSaveHandler(function () {
+      if (app.screen === 'play') {
+        setScreen('paused');
+        if (mode) mode.cancelAim(true);
+      }
+      return { ok: save() };
+    });
+  }
 })(window.SB = window.SB || {});
