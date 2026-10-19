@@ -147,17 +147,39 @@
     }
     return inside;
   };
-  /* Reset to a small circle around the centre (spec 5.4). */
-  Sobo.prototype.fixShape = function () {
-    var r = this.data.innerR * 0.5;
+  /* 几何可行的规则圆半径下限：在该半径下，同球非相邻（环上 dn=2）膜点的弦长
+     恰好略大于接触距离 CONTACT，于是重排后的膜点不会自己穿透自己。
+     旧实现固定 innerR*0.5，对大球该弦长仅约 16 < 24，自碰撞逐帧反推超速、
+     又触发兜底，形成“缩成小圆卡死”的死循环。 */
+  Sobo.prototype.safeRadius = function () {
+    var n = this.n;
+    var dn = (n >= 5) ? 2 : (n - 1);
+    // 2*r*sin(pi*dn/n) = CONTACT*1.05 → r。再夹到健康半径以内。
+    var r = (CONTACT * 1.05) / (2 * Math.sin(Math.PI * dn / n));
+    if (!(r > 0) || !isFinite(r)) r = this.data.innerR;
+    return Math.min(this.data.innerR, r);
+  };
+
+  /* 灾难兜底：把膜点重排到以当前球心为圆心的几何可行规则圆上，并一次性清零速度。
+     radius 可由世界根据墙/邻球环境给出；默认恢复到健康尺寸 innerR。
+     无论如何半径不会小于 safeRadius()（保证不自穿透），也不会超过 innerR。
+     px/py 同步到新位置，避免下一步 _settle 用旧位置反推出巨速度。 */
+  Sobo.prototype.fixShape = function (radius) {
+    var r = radius;
+    if (!(r > 0) || !isFinite(r)) r = this.data.innerR;
+    var rs = this.safeRadius();
+    if (r < rs) r = rs;
+    if (r > this.data.innerR) r = this.data.innerR;
     if (!isFinite(this.cx) || !isFinite(this.cy)) { this.cx = this.bx; this.cy = this.by; }
     if (!isFinite(this.cx) || !isFinite(this.cy)) { this.cx = 0; this.cy = 0; }
+    var cx = this.cx, cy = this.cy;
     for (var i = 0; i < this.n; i++) {
-      this.x[i] = this.cx + Math.cos(this.base[i]) * r;
-      this.y[i] = this.cy + Math.sin(this.base[i]) * r;
+      this.x[i] = cx + Math.cos(this.base[i]) * r;
+      this.y[i] = cy + Math.sin(this.base[i]) * r;
+      this.px[i] = this.x[i]; this.py[i] = this.y[i];
       this.vx[i] = 0; this.vy[i] = 0;
     }
-    this.bx = this.cx; this.by = this.cy; this.bvx = 0; this.bvy = 0;
+    this.bx = cx; this.by = cy; this.bvx = 0; this.bvy = 0;
     this.measure();
   };
   Sobo.prototype.blownUp = function () {
@@ -332,7 +354,7 @@
         var t = s.flashT / s.data.flash;
         s.flash = t >= 1 ? 0 : 1 - t * t;
       }
-      if (!s.frozen && s.blownUp()) s.fixShape();
+      if (!s.frozen && s.blownUp()) this._rescue(s);
     }
     this._shockwaves(dt);
     this._overlaps(dt);
@@ -458,6 +480,11 @@
     var sobos = this.sobos, map = this._hash.cell, k, i, s;
     map.clear();
     var total = 0;
+    // 本帧发现的“跨球深穿透”配对（tunneling：两膜点几乎重叠）。这种情况硬接触
+    // 投影会把单点在一帧内暴推数十像素、由 _settle 反推出几千的假速度，统一改为
+    // 在本次 _collide 结束后转 ghost 缓出（复用 _overlaps 机制），不做硬投影。
+    var deepPairs = [], deepKeys = {};
+    var DEEP2 = (CONTACT * 0.5) * (CONTACT * 0.5);
     for (k = 0; k < sobos.length; k++) {
       s = sobos[k];
       for (i = 0; i < s.n; i++) {
@@ -502,6 +529,15 @@
               var dx = B.x[j] - A.x[i], dy = B.y[j] - A.y[i], d2 = dx * dx + dy * dy;
               if (d2 >= C2 || d2 < 1e-12) continue;
               var d = Math.sqrt(d2), nx = dx / d, ny = dy / d, p = (CONTACT - d) * 0.5;
+              if (kb !== k && d2 < DEEP2) {
+                // 跨球膜点几乎重叠（整体穿透）：排队转 ghost 缓出，不做暴推硬投影。
+                var dk = A.id < B.id ? A.id * 65536 + B.id : B.id * 65536 + A.id;
+                if (!deepKeys[dk]) {
+                  deepKeys[dk] = 1;
+                  deepPairs.push(A.id < B.id ? [A, B] : [B, A]);
+                }
+                continue;
+              }
               var fa = A.frozen ? 0 : B.frozen ? 2 : 1, fb = B.frozen ? 0 : A.frozen ? 2 : 1;
               A.x[i] -= nx * p * fa; A.y[i] -= ny * p * fa;
               B.x[j] += nx * p * fb; B.y[j] += ny * p * fb;
@@ -526,6 +562,17 @@
       }
     }
     this.count = total;
+    this._deepCount = (this._deepCount || 0) + deepPairs.length;
+    // 本帧发现的深穿透配对：按真实轮廓收集互相侵入的节点，立即转 ghost 缓出。
+    // 不等 _overlaps 的 1/15 轮扫（否则接触力已先暴推），也不触碰浅接触（d≥DEEP）。
+    for (var dp = 0; dp < deepPairs.length; dp++) {
+      var DA = deepPairs[dp][0], DB = deepPairs[dp][1];
+      if (DA.dead || DB.dead || this._recovering(DA, DB)) continue;
+      var inA = null, inB = null, qq;
+      for (qq = 0; qq < DA.n; qq++) if (DB.contains(DA.x[qq], DA.y[qq])) { (inA = inA || []).push(qq); }
+      for (qq = 0; qq < DB.n; qq++) if (DA.contains(DB.x[qq], DB.y[qq])) { (inB = inB || []).push(qq); }
+      if (inA || inB) this._startRecovery(DA, DB, inA || [], inB || []);
+    }
   };
 
   /* Field walls (only for subas whose wall collision is on) and bumpers. */
@@ -613,9 +660,10 @@
       if (R.a.dead || R.b.dead) { this._endRecovery(r); continue; }
       R.t += dt;
       if (R.t >= CFG.overlapTimeout) {
-        R.a.measure(); R.b.measure();
-        R.a.fixShape(); R.b.fixShape();
+        var ta = R.a, tb = R.b;
+        // 先解除本配对 ghost，_rescue 才能据当前穿透决定是否重新缓出。
         this._endRecovery(r);
+        this._rescue(ta); this._rescue(tb);
         continue;
       }
       var stillA = false, stillB = false;
@@ -637,6 +685,57 @@
         R.a.push = [ex / el * CFG.overlapAccel, ey / el * CFG.overlapAccel];
       }
       if (!stillA && !stillB) this._endRecovery(r);
+    }
+  };
+  /* 环境感知的灾难兜底：先用几何可行半径重建规则圆（fixShape），半径还要避开
+     墙与非幽灵邻球；当球被严重夹死、连最小可行圆都放不下时，把仍侵入的邻球
+     配对转成 ghost 穿透缓出（复用 _overlaps 机制），而不是缩到更小的自碰撞圆。
+     blownUp 与 overlapTimeout 两条路径都经这里，保持恢复行为一致。 */
+  World.prototype._rescue = function (s) {
+    if (!s || s.dead) return;
+    // 0) 重置会改变膜点位置，该球既有穿透恢复的 mask（按旧轮廓索引）与 push 随即失效。
+    //    先解除它参与的全部旧恢复（连同残留的分离 push），重置后再按新轮廓统一重新判定，
+    //    避免旧 mask/push 用旧位置在下一步制造新冲量。倒序删除以保持索引有效。
+    for (var ri = this.recoveries.length - 1; ri >= 0; ri--) {
+      var R0 = this.recoveries[ri];
+      if (R0.a === s || R0.b === s) this._endRecovery(ri);
+    }
+    var rs = s.safeRadius();
+    // 1) 球心若贴墙（比 rs+SUBA_R 还近），先沿墙法线整体回拉，否则规则圆整片穿墙，
+    //    会被墙投影逐点暴推、由 _settle 反推出几千速度。
+    for (var e = 0; e < this.edges.length; e++) {
+      var E = this.edges[e];
+      var dw = (s.cx - E.px) * E.nx + (s.cy - E.py) * E.ny;
+      var need = rs + SUBA_R;
+      if (dw < need) { s.cx += E.nx * (need - dw); s.cy += E.ny * (need - dw); }
+    }
+    // 2) 环境允许的最大规则圆半径：墙方向 r ≤ 距墙 - SUBA_R；邻球连心方向
+    //    r + rB + 2*SUBA_R ≤ d。
+    var rEnv = s.data.innerR;
+    for (e = 0; e < this.edges.length; e++) {
+      E = this.edges[e];
+      dw = (s.cx - E.px) * E.nx + (s.cy - E.py) * E.ny;
+      rEnv = Math.min(rEnv, dw - SUBA_R);
+    }
+    for (var k = 0; k < this.sobos.length; k++) {
+      var B = this.sobos[k];
+      if (B === s || B.dead || this._recovering(s, B)) continue;
+      var dx = B.cx - s.cx, dy = B.cy - s.cy, d = Math.hypot(dx, dy) || 1e-6;
+      rEnv = Math.min(rEnv, d - B.data.innerR - 2 * SUBA_R);
+    }
+    // 3) 半径夹在 [几何可行下限, 健康半径]，绝不缩到会自穿透的尺寸。
+    var r = Math.max(rs, Math.min(s.data.innerR, rEnv));
+    s.fixShape(r);
+    // 4) 安全网：重置后用真实轮廓实测，凡与非 ghost 邻球仍互相侵入的配对，
+    //    一律立刻转 ghost 缓出（不等 _overlaps 的 1/15 扫描，否则下一帧接触力
+    //    先爆发）。这样重置圆只参与有界的正常接触，不会被深穿透反推出超速。
+    for (k = 0; k < this.sobos.length; k++) {
+      B = this.sobos[k];
+      if (B === s || B.dead || this._recovering(s, B)) continue;
+      var inS = null, inB = null;
+      for (var i = 0; i < s.n; i++) if (B.contains(s.x[i], s.y[i])) { (inS = inS || []).push(i); }
+      for (var j = 0; j < B.n; j++) if (s.contains(B.x[j], B.y[j])) { (inB = inB || []).push(j); }
+      if (inS || inB) this._startRecovery(s, B, inS || [], inB || []);
     }
   };
   World.prototype._recovering = function (A, B) {
